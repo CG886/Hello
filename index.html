@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>1v1 联机聊天</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:linear-gradient(160deg,#0f1626 0%,#05070c 100%);color:#e8eef7;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+
+/* 主菜单 */
+.screen{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:24px;
+  background:radial-gradient(circle at 50% 40%,#141c2c 0%,#05070c 78%)}
+.screen.hidden{display:none}
+.screen h1{font-size:clamp(26px,8vw,44px);letter-spacing:6px;font-weight:800;
+  background:linear-gradient(90deg,#6ee7ff,#a78bfa,#f472b6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px}
+.screen .sub{color:#6b7a90;letter-spacing:4px;font-size:11px;margin-bottom:30px}
+.tips{max-width:340px;text-align:left;font-size:13px;line-height:2;
+  color:#9fb0c6;margin-bottom:26px}
+.tips i{color:#6ee7ff;font-style:normal;font-weight:700}
+
+.bigBtn{font-size:15px;letter-spacing:4px;font-weight:700;padding:15px 40px;
+  border-radius:999px;border:none;color:#04121a;cursor:pointer;
+  background:linear-gradient(135deg,#6ee7ff,#4cc9f0);
+  box-shadow:0 0 30px rgba(110,231,255,.45);margin:8px;min-width:230px;
+  transition:transform .1s}
+.bigBtn.alt{background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;
+  box-shadow:0 0 30px rgba(160,120,255,.45)}
+.bigBtn:active{transform:scale(.96)}
+
+#roomCode{font-size:44px;letter-spacing:12px;font-weight:900;color:#6ee7ff;
+  margin:22px 0;padding:16px 34px;border-radius:16px;
+  background:rgba(110,231,255,.08);border:2px dashed rgba(110,231,255,.5);
+  text-shadow:0 0 24px rgba(110,231,255,.7);font-variant-numeric:tabular-nums}
+
+#joinInput{font-size:22px;letter-spacing:8px;text-align:center;font-weight:800;
+  padding:14px 24px;border-radius:12px;border:2px solid rgba(110,231,255,.5);
+  background:rgba(0,0,0,.4);color:#6ee7ff;text-transform:uppercase;
+  outline:none;width:min(320px,85vw);font-family:inherit;
+  -webkit-user-select:text;user-select:text}
+
+#statusTxt{font-size:14px;color:#9fb0c6;letter-spacing:2px;margin-top:12px}
+#statusTxt.ok{color:#3aff6a}
+#statusTxt.err{color:#ff5252}
+
+/* 聊天界面 */
+#chat{position:fixed;inset:0;display:flex;flex-direction:column;z-index:10}
+#chat.hidden{display:none}
+
+#chatHeader{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;padding-top:calc(14px + env(safe-area-inset-top));
+  background:rgba(20,28,44,.85);border-bottom:1px solid rgba(110,231,255,.18);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#chatHeader .title{font-size:15px;letter-spacing:2px;color:#6ee7ff;font-weight:700}
+#chatHeader .status{font-size:11px;letter-spacing:2px;color:#3aff6a;margin-top:2px}
+#chatHeader .status.off{color:#ff5252}
+#leaveBtn{background:rgba(255,80,80,.18);border:1px solid rgba(255,110,110,.5);
+  color:#ff8a8a;font-size:12px;letter-spacing:2px;padding:8px 16px;border-radius:99px;
+  cursor:pointer}
+#leaveBtn:active{transform:scale(.95)}
+
+#messages{flex:1 1 auto;overflow-y:auto;padding:16px 14px;
+  display:flex;flex-direction:column;gap:10px;
+  -webkit-overflow-scrolling:touch}
+
+.msg{max-width:76%;padding:10px 14px;border-radius:16px;font-size:15px;
+  line-height:1.5;word-break:break-word;white-space:pre-wrap;
+  animation:msgIn .18s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.msg.me{align-self:flex-end;
+  background:linear-gradient(135deg,#6ee7ff,#4cc9f0);color:#04121a;
+  border-bottom-right-radius:4px}
+.msg.them{align-self:flex-start;
+  background:rgba(160,120,255,.22);border:1px solid rgba(160,120,255,.4);
+  color:#e8eef7;border-bottom-left-radius:4px}
+.msg .time{display:block;font-size:10px;opacity:.55;margin-top:4px}
+
+.msg.sys{align-self:center;background:rgba(255,255,255,.06);
+  color:#8fa2b8;font-size:12px;padding:6px 14px;border-radius:99px;
+  letter-spacing:1px;max-width:90%;text-align:center}
+
+/* 输入区 */
+#inputBar{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;
+  padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  background:rgba(20,28,44,.9);border-top:1px solid rgba(110,231,255,.18);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+
+#msgInput{flex:1;min-height:44px;max-height:120px;padding:11px 16px;
+  border-radius:22px;border:1px solid rgba(110,231,255,.35);
+  background:rgba(0,0,0,.35);color:#e8eef7;font-size:15px;outline:none;
+  resize:none;font-family:inherit;line-height:1.4;
+  -webkit-user-select:text;user-select:text}
+#msgInput::placeholder{color:#6b7a90}
+#msgInput:focus{border-color:#6ee7ff;box-shadow:0 0 14px rgba(110,231,255,.3)}
+
+#sendBtn{flex:0 0 auto;height:44px;padding:0 22px;border-radius:22px;border:none;
+  background:linear-gradient(135deg,#6ee7ff,#4cc9f0);color:#04121a;
+  font-size:14px;font-weight:800;letter-spacing:2px;cursor:pointer}
+#sendBtn:active{transform:scale(.94)}
+#sendBtn:disabled{opacity:.4;transform:none}
+</style>
+</head>
+<body>
+<div class="screen" id="menu">
+  <h1>1v1 聊 天</h1>
+  <div class="sub">C H A T &nbsp; R O O M</div>
+  <div class="tips">
+    <i>创建房间</i> — 生成房间号，发给朋友<br>
+    <i>加入房间</i> — 输入朋友发来的房间号<br>
+    <i>连接后</i> — 双方可以互相发消息<br>
+    提示：必须用 <i>https://</i> 网址打开
+  </div>
+  <button class="bigBtn" id="btnCreate">创 建 房 间</button>
+  <button class="bigBtn alt" id="btnJoinMenu">加 入 房 间</button>
+</div>
+
+<!-- 等待界面 -->
+<div class="screen hidden" id="hostWait">
+  <h1>房 间 已 创 建</h1>
+  <div class="sub">把这个房间号发给你的朋友</div>
+  <div id="roomCode">------</div>
+  <button class="bigBtn" id="btnCopy">复 制 房 间 号</button>
+  <div id="statusTxt">等待对方加入...</div>
+  <button class="bigBtn alt" id="btnCancelHost" style="margin-top:20px;font-size:12px;padding:10px 30px">取 消</button>
+</div>
+
+<!-- 加入界面 -->
+<div class="screen hidden" id="joinScreen">
+  <h1>加 入 房 间</h1>
+  <div class="sub">输入朋友发来的 6 位房间号</div>
+  <input id="joinInput" maxlength="6" placeholder="ABC123" autocomplete="off">
+  <button class="bigBtn" id="btnJoinGo" style="margin-top:24px">连 接</button>
+  <div id="statusTxt2" style="font-size:14px;color:#9fb0c6;margin-top:12px;letter-spacing:2px"></div>
+  <button class="bigBtn alt" id="btnCancelJoin" style="margin-top:16px;font-size:12px;padding:10px 30px">返 回</button>
+</div>
+
+<!-- 聊天界面 -->
+<div id="chat" class="hidden">
+  <div id="chatHeader">
+    <div>
+      <div class="title">房间 <span id="roomLabel">------</span></div>
+      <div class="status" id="connLabel">已连接</div>
+    </div>
+    <button id="leaveBtn">退 出</button>
+  </div>
+  <div id="messages"></div>
+  <div id="inputBar">
+    <textarea id="msgInput" rows="1" placeholder="输入消息..." maxlength="500"></textarea>
+    <button id="sendBtn">发送</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+/* ============================================================
+   全局
+   ============================================================ */
+let peer = null;
+let conn = null;
+let isHost = false;
+let myRoomCode = '';
+let connected = false;
+
+const menu       = document.getElementById('menu');
+const hostWait   = document.getElementById('hostWait');
+const joinScreen = document.getElementById('joinScreen');
+const chatScreen = document.getElementById('chat');
+const messagesEl = document.getElementById('messages');
+const msgInput   = document.getElementById('msgInput');
+const sendBtn    = document.getElementById('sendBtn');
+
+const clockNow = () => {
+  const d = new Date();
+  const p = n => n < 10 ? '0' + n : n;
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+};
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+/* ============================================================
+   创建房间
+   ============================================================ */
+function createRoom() {
+  isHost = true;
+  myRoomCode = genCode();
+  document.getElementById('roomCode').textContent = myRoomCode;
+
+  menu.classList.add('hidden');
+  hostWait.classList.remove('hidden');
+  const st = document.getElementById('statusTxt');
+  st.textContent = '连接服务器中...';
+  st.className = '';
+
+  try {
+    peer = new Peer(myRoomCode, { debug: 1 });
+  } catch (e) {
+    st.textContent = '创建失败：' + e.message;
+    st.className = 'err';
+    return;
+  }
+
+  peer.on('open', () => {
+    st.textContent = '等待对方加入...';
+    st.className = 'ok';
+  });
+
+  peer.on('connection', (c) => {
+    if (conn) { c.close(); return; }
+    conn = c;
+    setupConn();
+  });
+
+  peer.on('error', (e) => {
+    console.error('Peer error:', e);
+    st.textContent = '错误：' + (e.type || e.message);
+    st.className = 'err';
+    if (e.type === 'unavailable-id') {
+      st.textContent = '房间号冲突，请点击取消重试';
+    }
+  });
+}
+
+/* ============================================================
+   加入房间
+   ============================================================ */
+function joinRoom(code) {
+  isHost = false;
+  myRoomCode = code;
+
+  menu.classList.add('hidden');
+  joinScreen.classList.remove('hidden');
+  const st = document.getElementById('statusTxt2');
+  st.textContent = '连接中...';
+  st.style.color = '#6ee7ff';
+
+  try {
+    peer = new Peer(null, { debug: 1 });
+  } catch (e) {
+    st.textContent = '失败：' + e.message;
+    st.style.color = '#ff5252';
+    return;
+  }
+
+  peer.on('open', () => {
+    conn = peer.connect(code, { reliable: true });
+    setupConn();
+  });
+
+  peer.on('error', (e) => {
+    console.error('Peer error:', e);
+    st.textContent = '连接失败：' + (e.type === 'peer-unavailable' ? '房间不存在或已关闭' : (e.type || e.message));
+    st.style.color = '#ff5252';
+  });
+}
+function setupConn() {
+  const enterChat = () => {
+    connected = true;
+    hostWait.classList.add('hidden');
+    joinScreen.classList.add('hidden');
+    menu.classList.add('hidden');
+    chatScreen.classList.remove('hidden');
+
+    document.getElementById('roomLabel').textContent = myRoomCode;
+    document.getElementById('connLabel').textContent = '已连接';
+    document.getElementById('connLabel').className = 'status';
+
+    addSys('已连接到房间 ' + myRoomCode);
+    addSys('你们现在可以互相发消息了');
+
+    setTimeout(() => msgInput.focus(), 200);
+  };
+
+  conn.on('open', enterChat);
+  conn.on('data', (data) => {
+    if (!data) return;
+    if (typeof data === 'string') {
+      addMsg(data, 'them');
+    } else if (data.t === 'msg') {
+      addMsg(data.text, 'them');
+    }
+  });
+  conn.on('close', () => {
+    connected = false;
+    document.getElementById('connLabel').textContent = '对方已离开';
+    document.getElementById('connLabel').className = 'status off';
+    addSys('对方已离开房间');
+  });
+  conn.on('error', (e) => {
+    console.error('Conn error:', e);
+    addSys('连接出错：' + (e.type || e.message));
+  });
+
+  if (conn.open) enterChat();
+}
+
+/* ============================================================
+   消息
+   ============================================================ */
+function addMsg(text, who) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + who;
+  const t = document.createElement('span');
+  t.textContent = text;
+  div.appendChild(t);
+  const time = document.createElement('span');
+  time.className = 'time';
+  time.textContent = clockNow();
+  div.appendChild(time);
+  messagesEl.appendChild(div);
+  scrollBottom();
+}
+
+function addSys(text) {
+  const div = document.createElement('div');
+  div.className = 'msg sys';
+  div.textContent = text;
+  messagesEl.appendChild(div);
+  scrollBottom();
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
+
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  if (!conn || !conn.open) {
+    addSys('对方已断开，无法发送');
+    return;
+  }
+
+  addMsg(text, 'me');
+  try {
+    conn.send({ t: 'msg', text: text });
+  } catch (e) {
+    addSys('发送失败：' + e.message);
+  }
+
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+}
+document.getElementById('btnCreate').addEventListener('click', createRoom);
+document.getElementById('btnJoinMenu').addEventListener('click', () => {
+  menu.classList.add('hidden');
+  joinScreen.classList.remove('hidden');
+  setTimeout(() => document.getElementById('joinInput').focus(), 100);
+});
+
+document.getElementById('btnCancelHost').addEventListener('click', () => {
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  conn = null;
+  hostWait.classList.add('hidden');
+  menu.classList.remove('hidden');
+});
+
+document.getElementById('btnCancelJoin').addEventListener('click', () => {
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  conn = null;
+  joinScreen.classList.add('hidden');
+  menu.classList.remove('hidden');
+});
+
+document.getElementById('btnCopy').addEventListener('click', () => {
+  const code = document.getElementById('roomCode').textContent;
+  const done = () => {
+    document.getElementById('btnCopy').textContent = '已复制 ✓';
+    setTimeout(() => document.getElementById('btnCopy').textContent = '复 制 房 间 号', 1500);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(done).catch(() => fallbackCopy(code, done));
+  } else {
+    fallbackCopy(code, done);
+  }
+});
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+  cb();
+}
+
+const joinInput = document.getElementById('joinInput');
+joinInput.addEventListener('input', () => {
+  joinInput.value = joinInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+});
+joinInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btnJoinGo').click();
+});
+
+document.getElementById('btnJoinGo').addEventListener('click', () => {
+  const code = joinInput.value.trim();
+  if (code.length !== 6) {
+    const st = document.getElementById('statusTxt2');
+    st.textContent = '房间号必须为 6 位';
+    st.style.color = '#ff5252';
+    return;
+  }
+  joinRoom(code);
+});
+document.getElementById('leaveBtn').addEventListener('click', () => {
+  if (conn) { try { conn.close(); } catch (e) {} conn = null; }
+  if (peer) { try { peer.destroy(); } catch (e) {} peer = null; }
+  connected = false;
+  messagesEl.innerHTML = '';
+  chatScreen.classList.add('hidden');
+  menu.classList.remove('hidden');
+});
+
+sendBtn.addEventListener('click', sendMessage);
+
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+msgInput.addEventListener('input', () => {
+  msgInput.style.height = 'auto';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+});
+
+/* 页面关闭时清理连接 */
+window.addEventListener('beforeunload', () => {
+  if (conn) { try { conn.close(); } catch (e) {} }
+  if (peer) { try { peer.destroy(); } catch (e) {} }
+});
+</script>
+</body>
+</html>
